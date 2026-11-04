@@ -62,13 +62,32 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 dialog .chk{display:flex;align-items:center;gap:8px;color:var(--ink)}
 dialog .chk input{width:auto;margin:0}
 .warnbox{background:#fdecea;color:var(--bad);padding:8px 12px;border-radius:8px;margin-bottom:10px;font-size:14px}
+
+/* 放大字體 */
+body{font-size:17px}
+nav button{font-size:16px;padding:7px 14px}
+.tabs button{font-size:17px}
+table{font-size:16px}th{font-size:14px}
+.kpi b{font-size:26px}.kpi span{font-size:14px}
+.sub{font-size:16px}
+.center{max-width:480px}
+#vEmp .clock{font-size:64px}
+#vEmp #dateLine{font-size:20px}
+#vEmp select,#vEmp input{font-size:22px;padding:16px 12px}
+#vEmp .status{font-size:21px;padding:12px}
+#vEmp button.big{font-size:30px;padding:22px}
+#vEmp button.ghost{font-size:21px;padding:15px 16px}
+#vEmp #meName{font-size:32px !important}
+#vEmp #tip{font-size:17px !important}
+#vEmp .msg{font-size:21px}
+#vEmp table{font-size:19px}#vEmp th{font-size:16px}
 </style>
 </head>
 <body>
 <div id="demoBar" class="demo" hidden>⚠ 目前是「測試模式」，資料只存在這台裝置，員工用自己手機打卡不會同步。請先填入下方程式碼中的雲端資料庫設定。</div>
 <header>
   <h1>🕒 員工打卡系統</h1>
-  <nav><button id="navEmp" class="on">員工打卡</button><button id="navAdmin">管理後台</button></nav>
+  <nav><button id="navEmp" class="on">員工打卡</button><button id="navAdmin">管理後台</button><button id="zMinus">字－</button><button id="zPlus">字＋</button></nav>
 </header>
 
 <main>
@@ -183,7 +202,7 @@ if (USE_FIREBASE) {
     push: (p, v) => { const r = R(p).push(); return r.set(v).then(() => r.key); },
     auth: {
       onChange: cb => au.onAuthStateChanged(cb),
-      signIn: (em, pw) => au.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(() => au.signInWithEmailAndPassword(em, pw)),
+      signIn: (em, pw, keep) => au.setPersistence(keep ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION).then(() => au.signInWithEmailAndPassword(em, pw)),
       signOut: () => au.signOut(),
       resetPw: em => au.sendPasswordResetEmail(em),
       email: () => (au.currentUser ? au.currentUser.email : "")
@@ -247,6 +266,13 @@ const hrs = ms => (ms / 3600000).toFixed(2);
 const money = n => Math.round(n).toLocaleString("en-US") + " 元";
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const curYM = () => dstr(Date.now()).slice(0, 7);
+
+/* ---------- 字體大小（每支手機各自記住） ---------- */
+let zoomV = 1; try { zoomV = Number(localStorage.getItem("tc_zoom")) || 1; } catch (e) {}
+const applyZoom = () => { $("main").style.zoom = zoomV; try { localStorage.setItem("tc_zoom", String(zoomV)); } catch (e) {} };
+$("#zPlus").onclick = () => { zoomV = Math.min(1.8, +(zoomV + 0.1).toFixed(2)); applyZoom(); };
+$("#zMinus").onclick = () => { zoomV = Math.max(0.8, +(zoomV - 0.1).toFixed(2)); applyZoom(); };
+applyZoom();
 
 let roster = {}, staff = {}, employees = {}, punches = {}, settings = {};
 let loaded = { employees: false };
@@ -470,14 +496,14 @@ function renderAdmin() {
     adminMode = mode;
     $("#adminLogin").hidden = mode === "in"; $("#adminApp").hidden = mode !== "in";
     if (mode === "login") {
-      $("#adminLogin").innerHTML = `<h3>管理後台登入</h3><input id="ap1" type="email" placeholder="管理員信箱" autocomplete="username"><input id="ap2" type="password" placeholder="密碼" autocomplete="current-password"><button class="big" id="apOk">登入</button><div class="msg err" id="apMsg"></div><button class="ghost full" id="apForgot">忘記密碼？寄送重設信</button>`;
+      $("#adminLogin").innerHTML = `<h3>管理後台登入</h3><input id="ap1" type="email" placeholder="管理員信箱" autocomplete="username"><input id="ap2" type="password" placeholder="密碼" autocomplete="current-password"><label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:16px;text-align:left"><input type="checkbox" id="apKeep" checked style="width:auto;margin:0"> 保持登入（只在自己的手機或電腦勾選）</label><button class="big" id="apOk">登入</button><div class="msg err" id="apMsg"></div><button class="ghost full" id="apForgot">忘記密碼？寄送重設信</button>`;
       $("#apMsg").textContent = adminMsg;
       const say2 = (t, c) => { $("#apMsg").className = "msg " + (c || ""); $("#apMsg").textContent = t; };
       const go = async () => {
         const em = $("#ap1").value.trim(), pw = $("#ap2").value;
         if (!em || !pw) return say2("請輸入信箱和密碼", "err");
         say2("登入中…");
-        try { await store.auth.signIn(em, pw); } catch (e) { say2("登入失敗：信箱或密碼不正確", "err"); }
+        try { await store.auth.signIn(em, pw, $("#apKeep").checked); } catch (e) { say2("登入失敗：信箱或密碼不正確", "err"); }
       };
       $("#apOk").onclick = go; $("#ap2").onkeydown = e => { if (e.key === "Enter") go(); };
       $("#apForgot").onclick = async () => {
