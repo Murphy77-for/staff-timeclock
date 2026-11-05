@@ -13,8 +13,8 @@
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;background:var(--bg);color:var(--ink)}
 header{background:var(--acc);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 header h1{font-size:18px;margin:0}
-nav button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);padding:6px 12px;border-radius:999px;font-size:14px;cursor:pointer;margin-left:6px}
-nav button.on{background:#fff;color:var(--acc)}
+header button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);padding:6px 12px;border-radius:999px;font-size:14px;cursor:pointer;margin-left:6px}
+header button.on{background:#fff;color:var(--acc)}
 main{max-width:900px;margin:0 auto;padding:16px}
 .card{background:var(--card);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .center{text-align:center;max-width:420px;margin:0 auto 16px}
@@ -65,7 +65,7 @@ dialog .chk input{width:auto;margin:0}
 
 /* 放大字體 */
 body{font-size:17px}
-nav button{font-size:16px;padding:7px 14px}
+header button{font-size:16px;padding:7px 14px}
 .tabs button{font-size:17px}
 table{font-size:16px}th{font-size:14px}
 .kpi b{font-size:26px}.kpi span{font-size:14px}
@@ -81,13 +81,20 @@ table{font-size:16px}th{font-size:14px}
 #vEmp #tip{font-size:17px !important}
 #vEmp .msg{font-size:21px}
 #vEmp table{font-size:19px}#vEmp th{font-size:16px}
+.entgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+header nav{flex:1 0 100%;display:flex;flex-wrap:wrap;align-items:center;row-gap:6px}
+#langSel{width:auto;margin:0;padding:7px 12px;font-size:16px;border-radius:999px;border:1px solid rgba(255,255,255,.7);background:transparent;color:#fff}
+#langSel option{color:#1f2933;background:#fff}
+header h1{flex:1 1 100px;min-width:0;line-height:1.25}
+#langSel{flex:0 0 auto;font-size:15px;padding:6px 10px;margin:0 0 0 auto}
 </style>
 </head>
 <body>
 <div id="demoBar" class="demo" hidden>⚠ 目前是「測試模式」，資料只存在這台裝置，員工用自己手機打卡不會同步。請先填入下方程式碼中的雲端資料庫設定。</div>
 <header>
-  <h1>🕒 員工打卡系統</h1>
-  <nav><button id="navEmp" class="on">員工打卡</button><button id="navAdmin">管理後台</button><button id="zMinus">字－</button><button id="zPlus">字＋</button></nav>
+  <h1 data-i18n="title">🕒 員工打卡系統</h1>
+  <button id="navAdmin" data-i18n="navAdmin">管理後台</button>
+  <nav><button id="navEmp" class="on" data-i18n="navEmp">員工打卡</button><button id="zMinus" data-i18n="zMinus">字－</button><button id="zPlus" data-i18n="zPlus">字＋</button><select id="langSel" aria-label="Language"><option value="zh">繁體中文</option><option value="vi">Tiếng Việt</option><option value="id">Bahasa Indonesia</option></select></nav>
 </header>
 
 <main>
@@ -99,11 +106,11 @@ table{font-size:16px}th{font-size:14px}
     <div id="meName" class="sub" style="font-size:22px;font-weight:700;margin:6px 0;color:var(--ink)" hidden></div>
     <select id="empSel"></select>
     <div id="status" class="status"></div>
-    <input id="pin" type="password" inputmode="numeric" maxlength="8" placeholder="輸入你的打卡密碼" autocomplete="off">
-    <div id="tip" class="sub" style="font-size:13px;margin:4px 0 0">第一次打卡成功後，這支手機會記住你的姓名，之後只要輸入打卡密碼就能打卡。</div>
+    <input id="pin" type="password" inputmode="numeric" maxlength="8" placeholder="輸入你的打卡密碼" data-i18n-ph="pinPh" autocomplete="off">
+    <div id="tip" data-i18n="tip" class="sub" style="font-size:13px;margin:4px 0 0">第一次打卡成功後，這支手機會記住你的姓名，之後只要輸入打卡密碼就能打卡。</div>
     <button id="punchBtn" class="big">打卡</button>
-    <button id="myRecBtn" class="ghost full">查看我的本月紀錄</button>
-    <button id="switchBtn" class="ghost full" hidden>換人／登出這支手機</button>
+    <button id="myRecBtn" class="ghost full" data-i18n="myRec">查看我的本月紀錄</button>
+    <button id="switchBtn" class="ghost full" hidden data-i18n="switchMe">換人／登出這支手機</button>
     <div id="msg" class="msg"></div>
   </div>
   <div class="card" id="myRecCard" hidden></div>
@@ -133,6 +140,8 @@ table{font-size:16px}th{font-size:14px}
         <button class="ghost" id="csvDetail">匯出打卡明細</button>
       </div>
       <div id="payBody"></div>
+      <div id="entryBody" style="margin-top:14px"></div>
+      <div id="payPreview"></div>
     </div>
 
     <div id="tab-trend" class="card" hidden>
@@ -338,6 +347,20 @@ function monthPunches(ym, empId) {
     .filter(([, p]) => p.in >= s && p.in < e && (!empId || p.emp === empId))
     .sort((a, b) => a[1].in - b[1].in);
 }
+const TYPE = { hourly: "時薪", daily: "日薪", monthly: "正職" };
+const DEF = { base: 27000, ins: 2000, meal: 1500, perTrip: 1100, otLimit: 5, otRate: 240 };
+function typeOf(e) { return (e && e.type) || "hourly"; }
+function punchList() { return empList(true).filter(([, e]) => typeOf(e) !== "daily"); }
+function monthRec(id, ym) { const e = employees[id]; return e && e.months && e.months[ym] ? e.months[ym] : null; }
+const nz = v => { const n = Number(v); return v === "" || v == null || isNaN(n) ? 0 : n; };
+/* 正職加班：每天（當天所有上下班合計）超過門檻的部分 × 加班時薪 */
+function otCalc(id, ym, limitH, rate) {
+  const per = {};
+  monthPunches(ym, id).forEach(([, p]) => { if (p.out) { const k = dstr(p.in); per[k] = (per[k] || 0) + (p.out - p.in); } });
+  const lim = limitH * 3600000; let ms = 0;
+  Object.values(per).forEach(v => { if (v > lim) ms += v - lim; });
+  return { ms, pay: Math.round(ms / 3600000 * rate) };
+}
 function payroll(ym) {
   const rows = {};
   monthPunches(ym).forEach(([, p]) => {
@@ -346,8 +369,16 @@ function payroll(ym) {
   });
   empList(true).forEach(([id]) => { if (!rows[id]) rows[id] = { ms: 0, days: new Set(), open: 0 }; });
   return Object.entries(rows).map(([id, r]) => {
-    const e = employees[id] || { name: "(已刪除)", rate: 0 };
-    return { id, name: e.name, rate: Number(e.rate) || 0, ms: r.ms, days: r.days.size, open: r.open, pay: r.ms / 3600000 * (Number(e.rate) || 0) };
+    const e = employees[id] || { name: "(已刪除)", rate: 0 }, type = typeOf(e), base = { id, name: e.name, type, ms: r.ms, open: r.open };
+    if (type === "daily" || type === "monthly") {
+      const m = monthRec(id, ym);
+      return Object.assign(base, {
+        days: type === "daily" ? (m ? Number(m.days) || 0 : 0) : r.days.size, rate: 0, pay: m ? Number(m.total) || 0 : 0, missing: !m,
+        how: type === "daily" ? (m ? "日薪 " + m.days + " 天 × " + money(m.rate) : "日薪（待填寫）") : (m ? "正職（西螺 " + m.trips + " 趟）" : "正職（待填寫）")
+      });
+    }
+    const rate = Number(e.rate) || 0;
+    return Object.assign(base, { days: r.days.size, rate, pay: r.ms / 3600000 * rate, missing: false, how: "時薪 " + money(rate) });
   }).sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
 }
 
@@ -370,22 +401,99 @@ function showView(v) {
   if (v === "admin") renderAdmin();
 }
 
+/* ---------- 多語言（員工端：繁體中文／越南語／印尼語） ---------- */
+const LANGS = ["zh", "vi", "id"];
+let lang = "zh"; try { const l0 = localStorage.getItem("tc_lang"); if (LANGS.indexOf(l0) >= 0) lang = l0; } catch (e) {}
+const I18N = {
+  zh: {
+    title: "🕒 員工打卡系統", navEmp: "員工打卡", navAdmin: "管理後台", zMinus: "字－", zPlus: "字＋",
+    selName: "— 請選擇你的姓名 —", pickFirst: "請先選擇姓名", working: "上班中（{t} 開始）", notWorking: "目前未上班",
+    pinPh: "輸入你的打卡密碼", tip: "第一次打卡成功後，這支手機會記住你的姓名，之後只要輸入打卡密碼就能打卡。",
+    punch: "打卡", punchIn: "上班打卡", punchOut: "下班打卡", locating: "定位中…",
+    myRec: "查看我的本月紀錄", switchMe: "換人／登出這支手機", pinWrong: "打卡密碼錯誤", gettingLoc: "正在取得你的位置…",
+    locDenied: "無法取得定位：請在手機/瀏覽器設定中允許本網站使用「位置」，再重新整理頁面",
+    locFail: "無法取得定位，請到訊號較好的地方再試一次",
+    locInaccurate: "定位不夠精準（誤差約 {a} 公尺），請開啟「精確位置」或走到空曠處再試",
+    tooFar: "你距離上班地點約 {d} 公尺，不在打卡範圍內（{r} 公尺）",
+    staleOpen: "上次上班（{t}）超過 {h} 小時沒下班，請通知主管補登後再打卡",
+    tooSoonOut: "剛剛才打過上班卡，請過 30 秒再按下班打卡", tooSoonIn: "剛剛才打過下班卡，請過 30 秒再按上班打卡",
+    outOk: "{name} 下班打卡成功　{time}　本次 {dur}", inOk: "{name} 上班打卡成功　{time}",
+    punchFail: "打卡失敗，請檢查網路後再試一次", loggedOut: "已登出這支手機",
+    recTitle: "{name}　{ym} 打卡紀錄", recTotal: "累計 {h} 小時（{dur}）",
+    thDate: "日期", thIn: "上班", thOut: "下班", thHrs: "時數", onDuty: "上班中", noRec: "本月還沒有紀錄",
+    shift: "第{n}班", dur: "{h} 時 {m} 分"
+  },
+  vi: {
+    title: "🕒 Hệ thống chấm công", navEmp: "Chấm công", navAdmin: "Quản lý", zMinus: "Chữ −", zPlus: "Chữ +",
+    selName: "— Chọn tên của bạn —", pickFirst: "Vui lòng chọn tên trước", working: "Đang làm việc (từ {t})", notWorking: "Chưa vào làm",
+    pinPh: "Nhập mật khẩu chấm công", tip: "Sau lần chấm công đầu tiên, điện thoại sẽ nhớ tên bạn. Lần sau chỉ cần nhập mật khẩu chấm công.",
+    punch: "Chấm công", punchIn: "Chấm công vào làm", punchOut: "Chấm công tan làm", locating: "Đang định vị…",
+    myRec: "Xem bảng chấm công tháng này", switchMe: "Đổi người / đăng xuất khỏi điện thoại này", pinWrong: "Sai mật khẩu chấm công", gettingLoc: "Đang lấy vị trí của bạn…",
+    locDenied: "Không lấy được vị trí. Hãy vào cài đặt điện thoại/trình duyệt, cho phép trang web này dùng “Vị trí”, rồi tải lại trang",
+    locFail: "Không lấy được vị trí, hãy ra nơi có sóng tốt hơn rồi thử lại",
+    locInaccurate: "Vị trí chưa chính xác (sai số khoảng {a} m). Hãy bật “Vị trí chính xác” hoặc ra chỗ thoáng rồi thử lại",
+    tooFar: "Bạn cách nơi làm việc khoảng {d} m, ngoài phạm vi chấm công ({r} m)",
+    staleOpen: "Lần vào làm trước ({t}) đã quá {h} giờ mà chưa chấm công tan làm. Hãy báo quản lý bổ sung rồi mới chấm công",
+    tooSoonOut: "Bạn vừa chấm công vào làm. Hãy chờ 30 giây rồi mới bấm chấm công tan làm", tooSoonIn: "Bạn vừa chấm công tan làm. Hãy chờ 30 giây rồi mới bấm chấm công vào làm",
+    outOk: "{name} chấm công tan làm thành công　{time}　Lần này: {dur}", inOk: "{name} chấm công vào làm thành công　{time}",
+    punchFail: "Chấm công thất bại, hãy kiểm tra mạng rồi thử lại", loggedOut: "Đã đăng xuất khỏi điện thoại này",
+    recTitle: "{name}　Bảng chấm công {ym}", recTotal: "Tổng cộng {h} giờ ({dur})",
+    thDate: "Ngày", thIn: "Vào", thOut: "Ra", thHrs: "Giờ", onDuty: "Đang làm", noRec: "Tháng này chưa có bản ghi",
+    shift: "Ca {n}", dur: "{h} giờ {m} phút"
+  },
+  id: {
+    title: "🕒 Sistem Absensi Karyawan", navEmp: "Absen", navAdmin: "Admin", zMinus: "Huruf −", zPlus: "Huruf +",
+    selName: "— Pilih nama Anda —", pickFirst: "Pilih nama terlebih dahulu", working: "Sedang bekerja (sejak {t})", notWorking: "Belum masuk kerja",
+    pinPh: "Masukkan kata sandi absen", tip: "Setelah absen pertama berhasil, ponsel ini akan mengingat nama Anda. Selanjutnya cukup masukkan kata sandi absen.",
+    punch: "Absen", punchIn: "Absen Masuk", punchOut: "Absen Pulang", locating: "Mencari lokasi…",
+    myRec: "Lihat catatan absen bulan ini", switchMe: "Ganti orang / keluar dari ponsel ini", pinWrong: "Kata sandi absen salah", gettingLoc: "Mengambil lokasi Anda…",
+    locDenied: "Lokasi tidak dapat diambil. Izinkan situs ini memakai “Lokasi” di pengaturan ponsel/browser, lalu muat ulang halaman",
+    locFail: "Lokasi tidak dapat diambil, coba lagi di tempat dengan sinyal lebih baik",
+    locInaccurate: "Lokasi kurang akurat (selisih sekitar {a} m). Aktifkan “Lokasi akurat” atau pindah ke tempat terbuka, lalu coba lagi",
+    tooFar: "Anda berjarak sekitar {d} m dari tempat kerja, di luar jangkauan absen ({r} m)",
+    staleOpen: "Absen masuk terakhir ({t}) sudah lebih dari {h} jam dan belum absen pulang. Hubungi atasan untuk koreksi sebelum absen lagi",
+    tooSoonOut: "Anda baru saja absen masuk. Tunggu 30 detik sebelum absen pulang", tooSoonIn: "Anda baru saja absen pulang. Tunggu 30 detik sebelum absen masuk",
+    outOk: "{name} berhasil absen pulang　{time}　Durasi: {dur}", inOk: "{name} berhasil absen masuk　{time}",
+    punchFail: "Absen gagal, periksa jaringan lalu coba lagi", loggedOut: "Sudah keluar dari ponsel ini",
+    recTitle: "{name}　Catatan absen {ym}", recTotal: "Total {h} jam ({dur})",
+    thDate: "Tanggal", thIn: "Masuk", thOut: "Pulang", thHrs: "Jam", onDuty: "Bekerja", noRec: "Belum ada catatan bulan ini",
+    shift: "Shift {n}", dur: "{h} jam {m} menit"
+  }
+};
+const tx = (k, p) => { let s = (I18N[lang] && I18N[lang][k]) || I18N.zh[k] || k; if (p) for (const x in p) s = s.split("{" + x + "}").join(p[x]); return s; };
+const WKL = { zh: ["日", "一", "二", "三", "四", "五", "六"], vi: ["CN", "T2", "T3", "T4", "T5", "T6", "T7"], id: ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"] };
+function dwkL(ts) { const d = new Date(ts), w = WKL[lang][d.getDay()]; return lang === "zh" ? dstr(ts).slice(5) + "（" + w + "）" : pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + " (" + w + ")"; }
+function dateLineText(d) { const w = WKL[lang][d.getDay()]; return lang === "zh" ? d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate() + "（週" + w + "）" : pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear() + " (" + w + ")"; }
+function hmL(ms) { const m = Math.round(ms / 60000); return tx("dur", { h: Math.floor(m / 60), m: pad(m % 60) }); }
+let myRecId = null;
+function sayK(k, cls, p) { const m = $("#msg"); m.textContent = tx(k, p); m.className = "msg " + (cls || ""); }
+function clearMsg() { $("#msg").textContent = ""; }
+function applyLang() {
+  document.documentElement.lang = lang === "zh" ? "zh-Hant" : lang;
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = tx(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el => { el.placeholder = tx(el.dataset.i18nPh); });
+  $("#langSel").value = lang; clearMsg(); renderEmp();
+  $("#dateLine").textContent = dateLineText(new Date());
+  if (!$("#myRecCard").hidden && myRecId && employees[myRecId]) renderMyRec(myRecId);
+}
+$("#langSel").onchange = () => { lang = $("#langSel").value; try { localStorage.setItem("tc_lang", lang); } catch (e) {} applyLang(); };
+
 /* =====================================================
    員工端
    ===================================================== */
 setInterval(() => {
   const d = new Date();
   $("#clock").textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  $("#dateLine").textContent = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}（週${WK[d.getDay()]}）`;
+  $("#dateLine").textContent = dateLineText(d);
 }, 1000);
 
 let empOptKey = "";
 function renderEmp() {
-  const list = empList(true);
-  const key = list.map(([id, e]) => id + e.name).join("|");
+  const list = punchList();
+  const key = list.map(([id, e]) => id + e.name).join("|") + "|" + lang;
   if (key !== empOptKey) {
     const cur = $("#empSel").value;
-    $("#empSel").innerHTML = `<option value="">— 請選擇你的姓名 —</option>` + list.map(([id, e]) => `<option value="${id}">${esc(e.name)}</option>`).join("");
+    $("#empSel").innerHTML = `<option value="">${tx("selName")}</option>` + list.map(([id, e]) => `<option value="${id}">${esc(e.name)}</option>`).join("");
     if (list.some(([id]) => id === cur)) $("#empSel").value = cur;
     empOptKey = key;
   }
@@ -395,14 +503,14 @@ function renderEmp() {
   if (me) $("#meName").textContent = "👋 " + employees[me].name;
   const id = me || $("#empSel").value;
   const st = $("#status"), btn = $("#punchBtn");
-  if (!id) { st.textContent = "請先選擇姓名"; st.className = "status"; btn.textContent = "打卡"; btn.className = "big"; btn.disabled = true; return; }
+  if (!id) { st.textContent = tx("pickFirst"); st.className = "status"; btn.textContent = tx("punch"); btn.className = "big"; btn.disabled = true; return; }
   btn.disabled = false;
   const op = openPunch(id);
-  if (op) { st.textContent = `上班中（${dwk(op[1].in)} ${tstr(op[1].in)} 開始）`; st.className = "status on"; btn.textContent = "下班打卡"; btn.className = "big out"; }
-  else { st.textContent = "目前未上班"; st.className = "status"; btn.textContent = "上班打卡"; btn.className = "big"; }
+  if (op) { st.textContent = tx("working", { t: dwkL(op[1].in) + " " + tstr(op[1].in) }); st.className = "status on"; btn.textContent = tx("punchOut"); btn.className = "big out"; }
+  else { st.textContent = tx("notWorking"); st.className = "status"; btn.textContent = tx("punchIn"); btn.className = "big"; }
 }
-$("#empSel").onchange = () => { $("#msg").textContent = ""; $("#myRecCard").hidden = true; renderEmp(); };
-$("#switchBtn").onclick = () => { setMe(null); $("#empSel").value = ""; $("#pin").value = ""; $("#myRecCard").hidden = true; say("已登出這支手機", "ok"); renderEmp(); };
+$("#empSel").onchange = () => { clearMsg(); $("#myRecCard").hidden = true; renderEmp(); };
+$("#switchBtn").onclick = () => { setMe(null); $("#empSel").value = ""; $("#pin").value = ""; $("#myRecCard").hidden = true; sayK("loggedOut", "ok"); renderEmp(); };
 
 /* ---------- 定位檢查 ---------- */
 const site = () => (settings.site && settings.site.enabled ? settings.site : null);
@@ -421,11 +529,11 @@ async function checkLocation() {
   const s = site(); if (!s) return { ok: true, loc: null };
   let pos;
   try { pos = await getPos(); }
-  catch (e) { return { ok: false, err: e.code === 1 ? "無法取得定位：請在手機/瀏覽器設定中允許本網站使用「位置」，再重新整理頁面" : "無法取得定位，請到訊號較好的地方再試一次" }; }
+  catch (e) { return { ok: false, k: e.code === 1 ? "locDenied" : "locFail" }; }
   const { latitude: la, longitude: lo, accuracy: ac } = pos.coords;
   const d = Math.round(distM(la, lo, s.lat, s.lng));
-  if (ac > 150) return { ok: false, err: `定位不夠精準（誤差約 ${Math.round(ac)} 公尺），請開啟「精確位置」或走到空曠處再試` };
-  if (d > s.radius) return { ok: false, err: `你距離上班地點約 ${d} 公尺，不在打卡範圍內（${s.radius} 公尺）` };
+  if (ac > 150) return { ok: false, k: "locInaccurate", p: { a: Math.round(ac) } };
+  if (d > s.radius) return { ok: false, k: "tooFar", p: { d, r: s.radius } };
   return { ok: true, loc: { la: +la.toFixed(6), lo: +lo.toFixed(6), d, a: Math.round(ac) } };
 }
 const locTag = (l, label) => {
@@ -435,11 +543,10 @@ const locTag = (l, label) => {
 };
 const locCell = p => [locTag(p.inLoc, "上"), locTag(p.outLoc, "下")].filter(Boolean).join(" ") || '<span style="color:var(--mute)">—</span>';
 
-function say(t, cls) { const m = $("#msg"); m.textContent = t; m.className = "msg " + (cls || ""); }
 function checkPin() {
   const id = myId() || $("#empSel").value;
-  if (!id) { say("請先選擇姓名", "err"); return null; }
-  if (!verifyPin(id, $("#pin").value)) { say("打卡密碼錯誤", "err"); return null; }
+  if (!id) { sayK("pickFirst", "err"); return null; }
+  if (!verifyPin(id, $("#pin").value)) { sayK("pinWrong", "err"); return null; }
   if (!myId()) { setMe({ id }); renderEmp(); }
   return id;
 }
@@ -450,39 +557,42 @@ $("#punchBtn").onclick = async () => {
   try {
     let loc = null;
     if (site()) {
-      btn.disabled = true; btn.textContent = "定位中…"; say("正在取得你的位置…", "");
+      btn.disabled = true; btn.textContent = tx("locating"); sayK("gettingLoc", "");
       const r = await checkLocation();
       btn.disabled = false; renderEmp();
-      if (!r.ok) { say(r.err, "err"); return; }
+      if (!r.ok) { sayK(r.k, "err", r.p); return; }
       loc = r.loc;
     }
     if (op) {
       if (Date.now() - op[1].in > MAX_OPEN_HOURS * 3600000) {
-        say(`上次上班（${dwk(op[1].in)} ${tstr(op[1].in)}）超過 ${MAX_OPEN_HOURS} 小時沒下班，請通知主管補登後再打卡`, "err"); return;
+        sayK("staleOpen", "err", { t: dwkL(op[1].in) + " " + tstr(op[1].in), h: MAX_OPEN_HOURS }); return;
       }
       const dt = Date.now() - op[1].in;
-      if (dt >= 0 && dt < 30000) { say("剛剛才打過上班卡，請過 30 秒再按下班打卡", "err"); return; }
+      if (dt >= 0 && dt < 30000) { sayK("tooSoonOut", "err"); return; }
       await store.update("punches/" + op[0], { out: store.NOW, outLoc: loc });
-      say(`${e.name} 下班打卡成功　${tstr(Date.now())}　本次 ${hm(Date.now() - op[1].in)}`, "ok");
+      sayK("outOk", "ok", { name: e.name, time: tstr(Date.now()), dur: hmL(Date.now() - op[1].in) });
     } else {
       const last = Object.values(punches).filter(p => p.emp === id && p.out).sort((a, b) => b.out - a.out)[0];
       const dt2 = last ? Date.now() - last.out : -1;
-      if (dt2 >= 0 && dt2 < 30000) { say("剛剛才打過下班卡，請過 30 秒再按上班打卡", "err"); return; }
+      if (dt2 >= 0 && dt2 < 30000) { sayK("tooSoonIn", "err"); return; }
       await store.push("punches", { emp: id, in: store.NOW, inLoc: loc });
-      say(`${e.name} 上班打卡成功　${tstr(Date.now())}`, "ok");
+      sayK("inOk", "ok", { name: e.name, time: tstr(Date.now()) });
     }
     $("#pin").value = "";
-  } catch (err) { say("打卡失敗，請檢查網路後再試一次", "err"); }
+  } catch (err) { sayK("punchFail", "err"); }
 };
-$("#myRecBtn").onclick = () => {
-  const id = checkPin(); if (!id) return;
+function renderMyRec(id) {
+  myRecId = id;
   const ym = curYM(), rows = monthPunches(ym, id);
   let total = 0;
-  const lab = shiftLabels(rows);
-  const body = rows.map(([id, p]) => { if (p.out) total += p.out - p.in; return `<tr><td>${dwk(p.in)}${lab[id] ? ` <span class="tag off">${lab[id]}</span>` : ""}</td><td>${tstr(p.in)}</td><td>${p.out ? tstr(p.out) : "<span class='tag'>上班中</span>"}</td><td class="n">${p.out ? hrs(p.out - p.in) : "-"}</td></tr>`; }).join("");
-  $("#myRecCard").innerHTML = `<b>${esc(employees[id].name)}　${ym} 打卡紀錄</b><div class="sub">累計 ${hrs(total)} 小時（${hm(total)}）</div>` +
-    (rows.length ? `<div class="wrap"><table><thead><tr><th>日期</th><th>上班</th><th>下班</th><th class="n">時數</th></tr></thead><tbody>${body}</tbody></table></div>` : `<div class="empty">本月還沒有紀錄</div>`);
-  $("#myRecCard").hidden = false; $("#pin").value = "";
+  const lab = shiftLabels(rows, n => tx("shift", { n }));
+  const body = rows.map(([rid, p]) => { if (p.out) total += p.out - p.in; return `<tr><td>${dwkL(p.in)}${lab[rid] ? ` <span class="tag off">${lab[rid]}</span>` : ""}</td><td>${tstr(p.in)}</td><td>${p.out ? tstr(p.out) : `<span class='tag'>${tx("onDuty")}</span>`}</td><td class="n">${p.out ? hrs(p.out - p.in) : "-"}</td></tr>`; }).join("");
+  $("#myRecCard").innerHTML = `<b>${tx("recTitle", { name: esc(employees[id].name), ym })}</b><div class="sub">${tx("recTotal", { h: hrs(total), dur: hmL(total) })}</div>` +
+    (rows.length ? `<div class="wrap"><table><thead><tr><th>${tx("thDate")}</th><th>${tx("thIn")}</th><th>${tx("thOut")}</th><th class="n">${tx("thHrs")}</th></tr></thead><tbody>${body}</tbody></table></div>` : `<div class="empty">${tx("noRec")}</div>`);
+}
+$("#myRecBtn").onclick = () => {
+  const id = checkPin(); if (!id) return;
+  renderMyRec(id); $("#myRecCard").hidden = false; $("#pin").value = "";
 };
 
 /* =====================================================
@@ -551,32 +661,114 @@ $("#monPay").onchange = renderPay;
 function renderPay() {
   const ym = $("#monPay").value || curYM(), rows = payroll(ym);
   const tMs = rows.reduce((s, r) => s + r.ms, 0), tPay = rows.reduce((s, r) => s + r.pay, 0);
-  const openN = rows.reduce((s, r) => s + r.open, 0);
+  const openN = rows.reduce((s, r) => s + r.open, 0), miss = rows.filter(r => r.missing).map(r => r.name);
   $("#payBody").innerHTML =
     (openN ? `<div class="warnbox">本月有 ${openN} 筆「尚未下班」的紀錄，未計入薪資，請先補登。</div>` : "") +
-    `<div class="wrap"><table><thead><tr><th>姓名</th><th class="n">出勤天數</th><th class="n">總時數</th><th class="n">時薪</th><th class="n">應發薪資</th></tr></thead><tbody>` +
-    rows.map(r => `<tr><td>${esc(r.name)}${r.open ? ' <span class="tag warn">未下班</span>' : ""}</td><td class="n">${r.days}</td><td class="n">${hrs(r.ms)}</td><td class="n">${money(r.rate)}</td><td class="n"><b>${money(r.pay)}</b></td></tr>`).join("") +
-    `</tbody><tfoot><tr><td>合計</td><td></td><td class="n">${hrs(tMs)}</td><td></td><td class="n">${money(tPay)}</td></tr></tfoot></table></div>` +
-    `<div class="sub" style="margin-top:10px">應發薪資 = 總時數 × 時薪（以實際分鐘計算，金額四捨五入到整數）。時薪以員工目前設定為準。</div>` +
-    `<div class="sub" style="margin:12px 0 4px">複製到 LINE 的內容預覽：</div><pre style="background:#f4f6f8;padding:10px;border-radius:8px;white-space:pre-wrap;margin:0">${esc(payText(ym))}</pre>`;
+    (miss.length ? `<div class="warnbox">${esc(miss.join("、"))} 本月薪資尚未填寫，請在下方填好後按「儲存」。</div>` : "") +
+    `<div class="wrap"><table><thead><tr><th>姓名</th><th>類別</th><th class="n">出勤天數</th><th class="n">總時數</th><th>計薪方式</th><th class="n">應發薪資</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${esc(r.name)}${r.open ? ' <span class="tag warn">未下班</span>' : ""}${r.missing ? ' <span class="tag warn">待填寫</span>' : ""}</td><td>${TYPE[r.type]}</td><td class="n">${r.days}</td><td class="n">${hrs(r.ms)}</td><td>${esc(r.how)}</td><td class="n"><b>${money(r.pay)}</b></td></tr>`).join("") +
+    `</tbody><tfoot><tr><td>合計</td><td></td><td></td><td class="n">${hrs(tMs)}</td><td></td><td class="n">${money(tPay)}</td></tr></tfoot></table></div>` +
+    `<div class="sub" style="margin-top:10px">時薪人員：總時數 × 時薪（以實際分鐘計算）。日薪、正職人員：請在下方填寫並按儲存，儲存後的金額才會計入。</div>`;
+  renderEntries();
+  $("#payPreview").innerHTML = `<div class="sub" style="margin:12px 0 4px">複製到 LINE 的內容預覽：</div><pre style="background:#f4f6f8;padding:10px;border-radius:8px;white-space:pre-wrap;margin:0">${esc(payText(ym))}</pre>`;
 }
+
+/* ---- 日薪／正職：每月填寫區 ---- */
+let entSig = "";
+function entryCard(id, e, ym) {
+  const m = monthRec(id, ym), ty = typeOf(e);
+  const inp = (k, label, val, step) => `<label style="display:block;font-size:14px;color:var(--mute)">${label}<input data-f="${k}" type="number" inputmode="decimal" min="0" step="${step || "any"}" value="${esc(val == null ? "" : val)}"></label>`;
+  let body;
+  if (ty === "monthly") {
+    const g = k => (m && m[k] != null ? m[k] : (e[k] != null ? e[k] : DEF[k]));
+    body = inp("trips", "西螺趟數（每月只要填這格）", m ? m.trips : "") +
+      `<div class="sub" style="margin:8px 0 2px;font-size:14px">以下欄位填過會自動記住</div><div class="entgrid">` +
+      inp("base", "底薪（元）", g("base")) + inp("ins", "勞健保補貼（元）", g("ins")) + inp("meal", "誤餐費（元）", g("meal")) +
+      inp("perTrip", "每趟加給（元）", g("perTrip")) + inp("otLimit", "每天超過幾小時算加班", g("otLimit")) + inp("otRate", "加班時薪（元）", g("otRate")) + `</div>`;
+  } else {
+    body = `<div class="entgrid">` + inp("days", "本月天數（可填 0.5）", m ? m.days : "", "0.5") + inp("rate", "日薪（元／天，填一次會記住）", m ? m.rate : e.dailyRate) + `</div>`;
+  }
+  return `<div class="ent" data-id="${id}" data-ty="${ty}" style="border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px"><div style="font-size:19px;font-weight:700">${esc(e.name)}　<span class="tag off">${TYPE[ty]}</span> <span class="tag" data-role="state"></span></div>${body}<div data-role="calc" style="margin:10px 0;line-height:1.8"></div><button class="pri" data-act="saveEnt">儲存 ${Number(ym.split("-")[1])} 月</button>${ty === "monthly" ? ` <button class="ghost" data-act="copySlip">📋 複製明細（傳給他）</button>` : ""}</div>`;
+}
+function renderEntries() {
+  const ym = $("#monPay").value || curYM(), box = $("#entryBody");
+  const list = empList(true).filter(([, e]) => typeOf(e) !== "hourly");
+  if (!list.length) { box.innerHTML = ""; entSig = ""; return; }
+  const sig = ym + "|" + JSON.stringify(list.map(([id, e]) => { const o = Object.assign({}, e); delete o.months; delete o.pin; return [id, o, (e.months && e.months[ym]) || null]; }));
+  if (sig !== entSig) {
+    entSig = sig;
+    box.innerHTML = `<div style="font-weight:600;margin:6px 0">📝 日薪／正職人員（每月填寫一次）</div>` + list.map(([id, e]) => entryCard(id, e, ym)).join("");
+  }
+  box.querySelectorAll(".ent").forEach(c => refreshEnt(c));
+}
+function entCompute(card) {
+  const id = card.dataset.id, ym = $("#monPay").value || curYM(), ty = card.dataset.ty, f = {};
+  card.querySelectorAll("[data-f]").forEach(i => { f[i.dataset.f] = i.value.trim(); });
+  if (ty === "daily") {
+    const days = f.days === "" ? NaN : Number(f.days), rate = f.rate === "" ? NaN : Number(f.rate);
+    const ok = !isNaN(days) && !isNaN(rate) && days >= 0 && rate >= 0;
+    return { ty, ok, days, rate, total: ok ? Math.round(days * rate) : 0 };
+  }
+  const trips = f.trips === "" ? NaN : Number(f.trips), ok = !isNaN(trips) && trips >= 0, t = ok ? trips : 0;
+  const v = { base: nz(f.base), ins: nz(f.ins), meal: nz(f.meal), perTrip: nz(f.perTrip), otLimit: nz(f.otLimit), otRate: nz(f.otRate) };
+  const ot = otCalc(id, ym, v.otLimit, v.otRate), allow = v.ins + v.meal, fixed = v.base + allow, trip = t * v.perTrip;
+  return Object.assign({ ty, ok, trips: t, ot, allow, fixed, trip, total: Math.round(fixed + trip + ot.pay) }, v);
+}
+function refreshEnt(card) {
+  const c = entCompute(card), ym = $("#monPay").value || curYM(), m = monthRec(card.dataset.id, ym);
+  let html;
+  if (c.ty === "daily") html = c.ok ? `${c.days} 天 × ${money(c.rate)} ＝ <b>${money(c.total)}</b>` : `<span style="color:var(--mute)">請填天數和日薪</span>`;
+  else html = `底薪 ${money(c.base)}<br>補貼：勞健保 ${money(c.ins)} ＋ 誤餐費 ${money(c.meal)}　<b>共 ${money(c.fixed)}</b><br>西螺加給 ${c.trips} 趟 × ${money(c.perTrip)}　<b>計 ${money(c.trip)}</b><br>每日超過 ${c.otLimit} 小時加班費（共 ${hm(c.ot.ms)} × ${money(c.otRate)}）　<b>計 ${money(c.ot.pay)}</b><br><span style="font-size:20px">總計 <b>${money(c.total)}</b></span>` + (c.ok ? "" : `<br><span style="color:var(--mute)">← 請先填西螺趟數</span>`);
+  card.querySelector("[data-role=calc]").innerHTML = html;
+  const st = card.querySelector("[data-role=state]");
+  if (!m) { st.textContent = "尚未儲存"; st.className = "tag warn"; }
+  else if (c.ok && Math.round(Number(m.total)) === c.total) { st.textContent = "已儲存"; st.className = "tag"; }
+  else { st.textContent = "有變動，請按儲存"; st.className = "tag warn"; }
+}
+/* 正職明細文字（複製後私訊給本人） */
+function slipText(name, ym, c) {
+  const m = Number(ym.split("-")[1]), n = x => Math.round(x);
+  return name + " " + m + "月\n底薪\n" + n(c.base) + "元\n補貼\n勞健保" + n(c.ins) + "元\n誤餐費" + n(c.meal) + "元\n共" + n(c.fixed) + "元\n\n西螺加給" + c.trips + "趟 *" + n(c.perTrip) + "\n計" + n(c.trip) + "元\n\n每日超過" + c.otLimit + "小時加班費\n計" + n(c.ot.pay) + "元\n\n共" + c.total + "元";
+}
+$("#entryBody").oninput = e => { const c = e.target.closest(".ent"); if (c) refreshEnt(c); };
+$("#entryBody").onclick = async e => {
+  const cp = e.target.closest("[data-act=copySlip]");
+  if (cp) {
+    const card = cp.closest(".ent"), ym = $("#monPay").value || curYM(), c = entCompute(card), m = monthRec(card.dataset.id, ym);
+    if (!m || !c.ok || Math.round(Number(m.total)) !== c.total) { alert("請先按「儲存」再複製明細，這樣明細才會和薪資表一致"); return; }
+    doCopy(slipText(employees[card.dataset.id].name, ym, c), cp); return;
+  }
+  const b = e.target.closest("[data-act=saveEnt]"); if (!b) return;
+  const card = b.closest(".ent"), id = card.dataset.id, ym = $("#monPay").value || curYM(), c = entCompute(card), at = Date.now();
+  if (!c.ok) { alert(c.ty === "daily" ? "請填寫天數和日薪" : "請填寫西螺趟數"); return; }
+  try {
+    if (c.ty === "daily") {
+      await store.set("staff/" + id + "/months/" + ym, { days: c.days, rate: c.rate, total: c.total, at });
+      await store.update("staff/" + id, { dailyRate: c.rate });
+    } else {
+      await store.set("staff/" + id + "/months/" + ym, { trips: c.trips, base: c.base, ins: c.ins, meal: c.meal, perTrip: c.perTrip, otLimit: c.otLimit, otRate: c.otRate, otMs: c.ot.ms, otPay: c.ot.pay, total: c.total, at });
+      await store.update("staff/" + id, { base: c.base, ins: c.ins, meal: c.meal, perTrip: c.perTrip, otLimit: c.otLimit, otRate: c.otRate });
+    }
+  } catch (err) { alert("儲存失敗，請檢查網路後再試一次"); }
+};
+
 function csv(rows, name) {
   const t = "\ufeff" + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\r\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([t], { type: "text/csv;charset=utf-8" })); a.download = name; a.click();
 }
 /* ---------- 班次標示（同一天多次上班） ---------- */
-function shiftLabels(rows) {
+function shiftLabels(rows, fmt) {
   const cnt = {}, seq = {}, out = {};
   rows.forEach(([, p]) => { const k = p.emp + "|" + dstr(p.in); cnt[k] = (cnt[k] || 0) + 1; });
-  rows.forEach(([id, p]) => { const k = p.emp + "|" + dstr(p.in); seq[k] = (seq[k] || 0) + 1; out[id] = cnt[k] > 1 ? "第" + seq[k] + "班" : ""; });
+  rows.forEach(([id, p]) => { const k = p.emp + "|" + dstr(p.in); seq[k] = (seq[k] || 0) + 1; out[id] = cnt[k] > 1 ? (fmt ? fmt(seq[k]) : "第" + seq[k] + "班") : ""; });
   return out;
 }
 
 /* ---------- 一鍵複製（貼到 LINE） ---------- */
 function payText(ym) {
   const m = Number(ym.split("-")[1]);
-  const rows = payroll(ym).filter(r => r.ms > 0);
+  const rows = payroll(ym).filter(r => r.ms > 0 || r.pay > 0);
   return m + "月薪資\n" + (rows.length ? rows.map(r => r.name + " " + Math.round(r.pay) + "元").join("\n") : "（本月沒有紀錄）");
 }
 async function copyText(text) {
@@ -598,7 +790,11 @@ async function doCopy(text, btn) {
   if (ok) { const old = btn.textContent; btn.textContent = "✅ 已複製，可貼到 LINE"; setTimeout(() => { btn.textContent = old; }, 2500); }
   else copyDialog(text);
 }
-$("#copyPay").onclick = () => doCopy(payText($("#monPay").value || curYM()), $("#copyPay"));
+$("#copyPay").onclick = () => {
+  const ym = $("#monPay").value || curYM(), miss = payroll(ym).filter(r => r.missing).map(r => r.name);
+  if (miss.length && !confirm(miss.join("、") + " 本月薪資尚未填寫，複製的內容不會包含他們，仍要複製嗎？")) return;
+  doCopy(payText(ym), $("#copyPay"));
+};
 
 /* ---------- 月份趨勢 ---------- */
 $("#trendN").onchange = renderTrend;
@@ -627,13 +823,13 @@ function renderTrend() {
   const list = trendData(), max = Math.max(1, ...list.map(x => x.pay)), cur = curYM();
   const bars = list.map(x => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%"><div style="font-size:11px;color:var(--mute);white-space:nowrap">${Math.round(x.pay)}</div><div style="width:100%;max-width:44px;background:${x.ym === cur ? "#5eaaa3" : "var(--acc)"};border-radius:6px 6px 0 0;height:${Math.max(2, x.pay / max * 78)}%"></div></div>`).join("");
   const labels = list.map(x => `<div style="flex:1;text-align:center;font-size:13px">${x.label}</div>`).join("");
-  const ids = [...new Set(list.flatMap(x => x.rows.filter(r => r.ms > 0).map(r => r.id)))]
+  const ids = [...new Set(list.flatMap(x => x.rows.filter(r => r.ms > 0 || r.pay > 0).map(r => r.id)))]
     .sort((a, b) => ((employees[a] && employees[a].name) || "").localeCompare((employees[b] && employees[b].name) || "", "zh-Hant"));
   const sumRows = list.map((x, i) => {
     const df = trendDiff(list, i);
     return `<tr><td>${x.ym}${x.ym === cur ? " <span class='tag off'>至今</span>" : ""}</td><td class="n">${hrs(x.ms)}</td><td class="n"><b>${money(x.pay)}</b></td><td class="n">${df ? (df.d >= 0 ? "▲ " : "▼ ") + money(Math.abs(df.d)) + "（" + (df.d >= 0 ? "+" : "-") + Math.abs(df.p).toFixed(1) + "%）" : "—"}</td></tr>`;
   }).join("");
-  const empRows = ids.map(id => `<tr><td>${esc(employees[id] ? employees[id].name : "(已刪除)")}</td>` + list.map(x => { const r = x.rows.find(q => q.id === id); return `<td class="n">${r && r.ms > 0 ? money(r.pay) : "—"}</td>`; }).join("") + `</tr>`).join("");
+  const empRows = ids.map(id => `<tr><td>${esc(employees[id] ? employees[id].name : "(已刪除)")}</td>` + list.map(x => { const r = x.rows.find(q => q.id === id); return `<td class="n">${r && (r.ms > 0 || r.pay > 0) ? money(r.pay) : "—"}</td>`; }).join("") + `</tr>`).join("");
   $("#trendBody").innerHTML =
     `<div style="font-weight:600;margin-top:4px">每月總薪資（元）</div>` +
     `<div style="display:flex;align-items:flex-end;gap:8px;height:160px;margin:8px 0 2px">${bars}</div><div style="display:flex;gap:8px;margin-bottom:14px">${labels}</div>` +
@@ -645,7 +841,7 @@ function renderTrend() {
 
 $("#csvPay").onclick = () => {
   const ym = $("#monPay").value || curYM();
-  csv([["姓名", "出勤天數", "總時數", "時薪", "應發薪資"], ...payroll(ym).map(r => [r.name, r.days, hrs(r.ms), r.rate, Math.round(r.pay)])], `薪資_${ym}.csv`);
+  csv([["姓名", "類別", "出勤天數", "總時數", "計薪方式", "應發薪資"], ...payroll(ym).map(r => [r.name, TYPE[r.type], r.days, hrs(r.ms), r.how, Math.round(r.pay)])], `薪資_${ym}.csv`);
 };
 $("#csvDetail").onclick = () => {
   const ym = $("#monPay").value || curYM();
@@ -700,28 +896,38 @@ function renderStaff() {
   if (s && s.enabled) { $("#siteBody").className = "status on"; $("#siteBody").innerHTML = `📍 已啟用定位限制：範圍 ${s.radius} 公尺　<a href="https://www.google.com/maps?q=${s.lat},${s.lng}" target="_blank" rel="noopener">查看地圖</a>`; }
   else { $("#siteBody").className = "status"; $("#siteBody").textContent = "📍 尚未啟用定位限制（員工在任何地方都能打卡）"; }
   const list = empList(false);
-  $("#staffBody").innerHTML = list.length ? `<div class="wrap"><table><thead><tr><th>姓名</th><th class="n">時薪</th><th>打卡密碼</th><th>狀態</th><th></th></tr></thead><tbody>` +
-    list.map(([id, e]) => `<tr><td>${esc(e.name)}</td><td class="n">${money(e.rate)}</td><td>${esc(e.pin)}</td><td>${e.active === false ? '<span class="tag off">已停用</span>' : '<span class="tag">在職</span>'}</td><td><button class="ghost sm" data-act="editStaff" data-id="${id}">編輯</button></td></tr>`).join("") +
-    `</tbody></table></div><div class="sub" style="margin-top:10px">離職請用「停用」，員工就不會出現在打卡選單，但歷史紀錄與薪資仍保留。</div>` : `<div class="empty">還沒有員工，請按「＋ 新增員工」</div>`;
+  const setting = e => { const t = typeOf(e); if (t === "hourly") return "時薪 " + money(e.rate); if (t === "daily") return e.dailyRate != null && e.dailyRate !== "" ? "日薪 " + money(e.dailyRate) : "日薪（尚未設定）"; return "底薪 " + money(e.base != null ? e.base : DEF.base) + "，每趟加給 " + money(e.perTrip != null ? e.perTrip : DEF.perTrip); };
+  $("#staffBody").innerHTML = list.length ? `<div class="wrap"><table><thead><tr><th>姓名</th><th>類別</th><th>計薪設定</th><th>打卡密碼</th><th>狀態</th><th></th></tr></thead><tbody>` +
+    list.map(([id, e]) => `<tr><td>${esc(e.name)}</td><td>${TYPE[typeOf(e)]}</td><td>${setting(e)}</td><td>${e.pin ? esc(e.pin) : "—"}</td><td>${e.active === false ? '<span class="tag off">已停用</span>' : '<span class="tag">在職</span>'}</td><td><button class="ghost sm" data-act="editStaff" data-id="${id}">編輯</button></td></tr>`).join("") +
+    `</tbody></table></div><div class="sub" style="margin-top:10px">離職請用「停用」，員工就不會出現在打卡選單，但歷史紀錄與薪資仍保留。日薪人員不會出現在打卡選單。</div>` : `<div class="empty">還沒有員工，請按「＋ 新增員工」</div>`;
 }
 function staffDialog(id) {
-  const e = id ? employees[id] : { name: "", pin: "", rate: "", active: true };
+  const e = id ? employees[id] : { name: "", pin: "", rate: "", active: true, type: "hourly" };
+  const ty = typeOf(e), v = k => esc(e[k] != null ? e[k] : (DEF[k] != null ? DEF[k] : ""));
+  const num = (k, label) => `<label>${label}</label><input name="${k}" type="number" inputmode="decimal" min="0" step="any" value="${v(k)}">`;
   dlg(id ? "編輯員工" : "新增員工",
     `<label>姓名</label><input name="name" value="${esc(e.name)}">
-     <label>打卡密碼（4–8 位數字，員工打卡用）</label><input name="pin" inputmode="numeric" maxlength="8" value="${esc(e.pin)}">
-     <label>時薪（元）</label><input name="rate" type="number" inputmode="decimal" min="0" step="any" value="${esc(e.rate)}">
+     <label>類別</label><select name="type"><option value="hourly" ${ty === "hourly" ? "selected" : ""}>時薪</option><option value="daily" ${ty === "daily" ? "selected" : ""}>日薪（天數與日薪每月自己填）</option><option value="monthly" ${ty === "monthly" ? "selected" : ""}>正職（底薪＋趟數加給＋加班）</option></select>
+     <label>打卡密碼（4–8 位數字，員工打卡用；日薪人員不打卡可留空）</label><input name="pin" inputmode="numeric" maxlength="8" value="${esc(e.pin)}">
+     <div class="g g-hourly"><label>時薪（元）</label><input name="rate" type="number" inputmode="decimal" min="0" step="any" value="${esc(e.rate)}"></div>
+     <div class="g g-daily">${num("dailyRate", "日薪（元／天，填一次後會記住）")}</div>
+     <div class="g g-monthly">${num("base", "底薪（元）")}${num("ins", "勞健保補貼（元）")}${num("meal", "誤餐費（元）")}${num("perTrip", "西螺每趟加給（元）")}${num("otLimit", "每天超過幾小時算加班")}${num("otRate", "加班時薪（元）")}</div>
      <label class="chk"><input type="checkbox" name="active" ${e.active === false ? "" : "checked"}> 在職中</label>`,
     async d => {
-      const name = dv(d, "name").value.trim(), pin = dv(d, "pin").value.trim(), rate = Number(dv(d, "rate").value);
+      const name = dv(d, "name").value.trim(), pin = dv(d, "pin").value.trim(), type = dv(d, "type").value, n = k => dv(d, k).value.trim();
       if (!name) { alert("請輸入姓名"); return false; }
-      if (!/^\d{4,8}$/.test(pin)) { alert("打卡密碼請輸入 4–8 位數字"); return false; }
-      if (!(rate >= 0) || dv(d, "rate").value === "") { alert("請輸入時薪"); return false; }
-      const salt = randSalt();
-      const ro = { name, active: dv(d, "active").checked, salt, ph: sha256(salt + pin) };
+      if ((type !== "daily" || pin) && !/^\d{4,8}$/.test(pin)) { alert("打卡密碼請輸入 4–8 位數字"); return false; }
+      const st = { pin, rate: 0 };
+      if (type === "hourly") { if (n("rate") === "" || !(Number(n("rate")) >= 0)) { alert("請輸入時薪"); return false; } st.rate = Number(n("rate")); }
+      if (type === "daily" && n("dailyRate") !== "") { if (!(Number(n("dailyRate")) >= 0)) { alert("日薪請輸入數字"); return false; } st.dailyRate = Number(n("dailyRate")); }
+      if (type === "monthly") { for (const k of ["base", "ins", "meal", "perTrip", "otLimit", "otRate"]) { if (n(k) === "" || !(Number(n(k)) >= 0)) { alert("請把正職的每個欄位都填好"); return false; } st[k] = Number(n(k)); } }
+      const salt = randSalt(), ro = { name, type, active: dv(d, "active").checked, salt, ph: pin ? sha256(salt + pin) : "" };
       let eid = id;
       if (id) await store.update("roster/" + id, ro); else eid = await store.push("roster", ro);
-      await store.set("staff/" + eid, { rate, pin });
+      await store.update("staff/" + eid, st);
     });
+  const d0 = $("#dlg"), sync = () => d0.querySelectorAll(".g").forEach(g => { g.hidden = !g.classList.contains("g-" + dv(d0, "type").value); });
+  dv(d0, "type").onchange = sync; sync();
 }
 $("#addStaff").onclick = () => staffDialog(null);
 $("#siteBtn").onclick = () => {
@@ -755,7 +961,7 @@ $("#chgAdminPin").onclick = async () => {
 store.listen("roster", v => { roster = v || {}; rebuild(); loaded.employees = true; renderEmp(); renderAdmin(); });
 store.listen("punches", v => { punches = v || {}; renderEmp(); renderAdmin(); });
 store.listen("settings/site", v => { settings = { site: v || undefined }; renderEmp(); renderAdmin(); });
-renderEmp();
+applyLang();
 </script>
 </body>
 </html>
