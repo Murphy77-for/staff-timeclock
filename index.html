@@ -350,6 +350,9 @@ function monthPunches(ym, empId) {
 const TYPE = { hourly: "時薪", daily: "日薪", monthly: "正職" };
 const DEF = { base: 27000, ins: 2000, meal: 1500, perTrip: 1100, otLimit: 5, otRate: 240 };
 function typeOf(e) { return (e && e.type) || "hourly"; }
+/* 員工打卡畫面顯示的名字（後台一律顯示原本姓名） */
+const DISP_DEFAULT = { "廷成": "Thành（廷成）", "阿紅": "Hồng（阿紅）", "阿興": "Hưng（阿興）", "阿后": "Hậu（阿后）" };
+function dispName(e) { return (e && (e.disp || DISP_DEFAULT[e.name] || e.name)) || ""; }
 function punchList() { return empList(true).filter(([, e]) => typeOf(e) !== "daily"); }
 function monthRec(id, ym) { const e = employees[id]; return e && e.months && e.months[ym] ? e.months[ym] : null; }
 const nz = v => { const n = Number(v); return v === "" || v == null || isNaN(n) ? 0 : n; };
@@ -490,17 +493,17 @@ setInterval(() => {
 let empOptKey = "";
 function renderEmp() {
   const list = punchList();
-  const key = list.map(([id, e]) => id + e.name).join("|") + "|" + lang;
+  const key = list.map(([id, e]) => id + dispName(e)).join("|") + "|" + lang;
   if (key !== empOptKey) {
     const cur = $("#empSel").value;
-    $("#empSel").innerHTML = `<option value="">${tx("selName")}</option>` + list.map(([id, e]) => `<option value="${id}">${esc(e.name)}</option>`).join("");
+    $("#empSel").innerHTML = `<option value="">${tx("selName")}</option>` + list.map(([id, e]) => `<option value="${id}">${esc(dispName(e))}</option>`).join("");
     if (list.some(([id]) => id === cur)) $("#empSel").value = cur;
     empOptKey = key;
   }
   const me = myId();
   $("#empSel").hidden = !!me; $("#tip").hidden = !!me;
   $("#meName").hidden = !me; $("#switchBtn").hidden = !me;
-  if (me) $("#meName").textContent = "👋 " + employees[me].name;
+  if (me) $("#meName").textContent = "👋 " + dispName(employees[me]);
   const id = me || $("#empSel").value;
   const st = $("#status"), btn = $("#punchBtn");
   if (!id) { st.textContent = tx("pickFirst"); st.className = "status"; btn.textContent = tx("punch"); btn.className = "big"; btn.disabled = true; return; }
@@ -570,13 +573,13 @@ $("#punchBtn").onclick = async () => {
       const dt = Date.now() - op[1].in;
       if (dt >= 0 && dt < 30000) { sayK("tooSoonOut", "err"); return; }
       await store.update("punches/" + op[0], { out: store.NOW, outLoc: loc });
-      sayK("outOk", "ok", { name: e.name, time: tstr(Date.now()), dur: hmL(Date.now() - op[1].in) });
+      sayK("outOk", "ok", { name: dispName(e), time: tstr(Date.now()), dur: hmL(Date.now() - op[1].in) });
     } else {
       const last = Object.values(punches).filter(p => p.emp === id && p.out).sort((a, b) => b.out - a.out)[0];
       const dt2 = last ? Date.now() - last.out : -1;
       if (dt2 >= 0 && dt2 < 30000) { sayK("tooSoonIn", "err"); return; }
       await store.push("punches", { emp: id, in: store.NOW, inLoc: loc });
-      sayK("inOk", "ok", { name: e.name, time: tstr(Date.now()) });
+      sayK("inOk", "ok", { name: dispName(e), time: tstr(Date.now()) });
     }
     $("#pin").value = "";
   } catch (err) { sayK("punchFail", "err"); }
@@ -587,7 +590,7 @@ function renderMyRec(id) {
   let total = 0;
   const lab = shiftLabels(rows, n => tx("shift", { n }));
   const body = rows.map(([rid, p]) => { if (p.out) total += p.out - p.in; return `<tr><td>${dwkL(p.in)}${lab[rid] ? ` <span class="tag off">${lab[rid]}</span>` : ""}</td><td>${tstr(p.in)}</td><td>${p.out ? tstr(p.out) : `<span class='tag'>${tx("onDuty")}</span>`}</td><td class="n">${p.out ? hrs(p.out - p.in) : "-"}</td></tr>`; }).join("");
-  $("#myRecCard").innerHTML = `<b>${tx("recTitle", { name: esc(employees[id].name), ym })}</b><div class="sub">${tx("recTotal", { h: hrs(total), dur: hmL(total) })}</div>` +
+  $("#myRecCard").innerHTML = `<b>${tx("recTitle", { name: esc(dispName(employees[id])), ym })}</b><div class="sub">${tx("recTotal", { h: hrs(total), dur: hmL(total) })}</div>` +
     (rows.length ? `<div class="wrap"><table><thead><tr><th>${tx("thDate")}</th><th>${tx("thIn")}</th><th>${tx("thOut")}</th><th class="n">${tx("thHrs")}</th></tr></thead><tbody>${body}</tbody></table></div>` : `<div class="empty">${tx("noRec")}</div>`);
 }
 $("#myRecBtn").onclick = () => {
@@ -907,6 +910,7 @@ function staffDialog(id) {
   const num = (k, label) => `<label>${label}</label><input name="${k}" type="number" inputmode="decimal" min="0" step="any" value="${v(k)}">`;
   dlg(id ? "編輯員工" : "新增員工",
     `<label>姓名</label><input name="name" value="${esc(e.name)}">
+     <label>打卡畫面顯示名稱（選填，只有員工打卡畫面會顯示；後台仍顯示上面的姓名）</label><input name="disp" value="${esc(e.disp || DISP_DEFAULT[e.name] || "")}" placeholder="例如 Thành（廷成）">
      <label>類別</label><select name="type"><option value="hourly" ${ty === "hourly" ? "selected" : ""}>時薪</option><option value="daily" ${ty === "daily" ? "selected" : ""}>日薪（天數與日薪每月自己填）</option><option value="monthly" ${ty === "monthly" ? "selected" : ""}>正職（底薪＋趟數加給＋加班）</option></select>
      <label>打卡密碼（4–8 位數字，員工打卡用；日薪人員不打卡可留空）</label><input name="pin" inputmode="numeric" maxlength="8" value="${esc(e.pin)}">
      <div class="g g-hourly"><label>時薪（元）</label><input name="rate" type="number" inputmode="decimal" min="0" step="any" value="${esc(e.rate)}"></div>
@@ -921,7 +925,7 @@ function staffDialog(id) {
       if (type === "hourly") { if (n("rate") === "" || !(Number(n("rate")) >= 0)) { alert("請輸入時薪"); return false; } st.rate = Number(n("rate")); }
       if (type === "daily" && n("dailyRate") !== "") { if (!(Number(n("dailyRate")) >= 0)) { alert("日薪請輸入數字"); return false; } st.dailyRate = Number(n("dailyRate")); }
       if (type === "monthly") { for (const k of ["base", "ins", "meal", "perTrip", "otLimit", "otRate"]) { if (n(k) === "" || !(Number(n(k)) >= 0)) { alert("請把正職的每個欄位都填好"); return false; } st[k] = Number(n(k)); } }
-      const salt = randSalt(), ro = { name, type, active: dv(d, "active").checked, salt, ph: pin ? sha256(salt + pin) : "" };
+      const salt = randSalt(), ro = { name, type, disp: n("disp"), active: dv(d, "active").checked, salt, ph: pin ? sha256(salt + pin) : "" };
       let eid = id;
       if (id) await store.update("roster/" + id, ro); else eid = await store.push("roster", ro);
       await store.update("staff/" + eid, st);
