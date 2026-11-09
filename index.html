@@ -126,6 +126,7 @@ header h1{flex:1 1 100px;min-width:0;line-height:1.25}
       <button data-tab="trend">月份趨勢</button>
       <button data-tab="rec">打卡紀錄</button>
       <button data-tab="staff">員工設定</button>
+      <button data-tab="backup">備份</button>
       <button id="logoutBtn" style="margin-left:auto">登出</button>
     </div>
 
@@ -160,6 +161,10 @@ header h1{flex:1 1 100px;min-width:0;line-height:1.25}
         <button class="pri" id="addRec">＋ 補登紀錄</button>
       </div>
       <div id="recBody"></div>
+    </div>
+
+    <div id="tab-backup" class="card" hidden>
+      <div id="backupBody"></div>
     </div>
 
     <div id="tab-staff" class="card" hidden>
@@ -625,7 +630,7 @@ function renderAdmin() {
       };
     }
   }
-  if (mode === "in") { renderToday(); renderPay(); renderTrend(); renderRec(); renderStaff(); }
+  if (mode === "in") { renderToday(); renderPay(); renderTrend(); renderRec(); renderStaff(); renderBackup(); }
 }
 $("#logoutBtn").onclick = () => store.auth.signOut();
 /* 登入後才讀取「只有管理員能讀」的資料；讀不到就代表不是管理員 */
@@ -641,7 +646,7 @@ store.auth.onChange(user => {
 });
 document.querySelectorAll(".tabs [data-tab]").forEach(b => b.onclick = () => {
   document.querySelectorAll(".tabs [data-tab]").forEach(x => x.classList.toggle("on", x === b));
-  ["today", "pay", "trend", "rec", "staff"].forEach(t => $("#tab-" + t).hidden = t !== b.dataset.tab);
+  ["today", "pay", "trend", "rec", "staff", "backup"].forEach(t => $("#tab-" + t).hidden = t !== b.dataset.tab);
 });
 
 /* ---- 今日狀況 ---- */
@@ -850,6 +855,68 @@ $("#csvDetail").onclick = () => {
   const ym = $("#monPay").value || curYM();
   csv([["姓名", "日期", "上班", "下班", "時數", "上班距離(公尺)", "下班距離(公尺)"], ...monthPunches(ym).map(([, p]) => [employees[p.emp]?.name || "", dstr(p.in), tstr(p.in), p.out ? tstr(p.out) : "", p.out ? hrs(p.out - p.in) : "", p.inLoc ? p.inLoc.d : "", p.outLoc ? p.outLoc.d : ""])], `打卡明細_${ym}.csv`);
 };
+
+/* ---- 備份 ---- */
+function backupMeta() {
+  const d = new Date(), off = -d.getTimezoneOffset(), sg = off >= 0 ? "+" : "-", z = pad(Math.floor(Math.abs(off) / 60)) + ":" + pad(Math.abs(off) % 60);
+  return { stamp: dstr(d) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()) + "（UTC" + sg + z + "）", file: dstr(d) + "_" + pad(d.getHours()) + "-" + pad(d.getMinutes()) };
+}
+function backupCounts() {
+  const monthsN = Object.values(staff).reduce((s, e) => s + (e && e.months ? Object.keys(e.months).length : 0), 0);
+  const ins = Object.values(punches).map(p => p.in).filter(Boolean);
+  return { emp: Object.keys(roster).length, rec: Object.keys(punches).length, months: monthsN, first: ins.length ? dstr(Math.min.apply(null, ins)) : "" };
+}
+function dl(text, name, type) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: type + ";charset=utf-8" })); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+function backupReady() { if (!loaded.employees) { alert("資料還在載入，請等幾秒後再按一次"); return false; } return true; }
+function doBackup() {
+  if (!backupReady()) return;
+  const m = backupMeta(), c = backupCounts();
+  const obj = {
+    "檔案說明": "員工打卡系統｜完整資料備份（含員工設定、打卡密碼、薪資設定、每月薪資紀錄、全部打卡紀錄）。內含機密資料，請自己妥善保管，不要傳到 LINE 群組。",
+    "備份時間": m.stamp,
+    "網站": location.href.split("#")[0],
+    "資料筆數": { "員工人數": c.emp, "打卡紀錄筆數": c.rec, "已儲存的月薪資紀錄筆數": c.months, "最早一筆打卡": c.first },
+    "還原說明": "「資料」欄位的結構和 Firebase 資料庫的 timeclock 節點相同。需要還原時請交給協助你的人（或 Claude）處理，切勿自行覆蓋現有資料。",
+    "資料": { roster: roster, staff: staff, punches: punches, settings: settings.site ? { site: settings.site } : {} }
+  };
+  dl(JSON.stringify(obj, null, 1), "員工打卡系統_完整備份_" + m.file + ".json", "application/json");
+  try { localStorage.setItem("tc_last_backup", m.stamp + "｜" + c.rec + " 筆打卡紀錄"); } catch (e) {}
+  renderBackup();
+}
+function backupCsvRec() {
+  if (!backupReady()) return;
+  const m = backupMeta(), rows = Object.entries(punches).sort((a, b) => a[1].in - b[1].in);
+  csv([["員工打卡系統｜全部打卡明細（所有月份）"], ["備份時間：" + m.stamp], ["共 " + rows.length + " 筆"], [],
+    ["姓名", "類別", "上班日期", "上班時間", "下班日期", "下班時間", "時數", "上班距離(公尺)", "下班距離(公尺)"],
+    ...rows.map(([, p]) => { const e = employees[p.emp]; return [e ? e.name : "(已刪除)", e ? TYPE[typeOf(e)] : "", dstr(p.in), tstr(p.in), p.out ? dstr(p.out) : "", p.out ? tstr(p.out) : "(未下班)", p.out ? hrs(p.out - p.in) : "", p.inLoc ? p.inLoc.d : "", p.outLoc ? p.outLoc.d : ""]; })],
+    "員工打卡系統_全部打卡明細_" + m.file + ".csv");
+}
+function backupCsvPay() {
+  if (!backupReady()) return;
+  const m = backupMeta(), set = {}, out = [];
+  Object.values(punches).forEach(p => { set[dstr(p.in).slice(0, 7)] = 1; });
+  Object.values(employees).forEach(e => { if (e && e.months) Object.keys(e.months).forEach(k => { set[k] = 1; }); });
+  Object.keys(set).sort().forEach(ym => payroll(ym).forEach(r => { if (r.ms > 0 || r.pay > 0) out.push([ym, r.name, TYPE[r.type], r.days, hrs(r.ms), r.how, Math.round(r.pay)]); }));
+  csv([["員工打卡系統｜全部月份薪資表"], ["備份時間：" + m.stamp], ["※ 時薪人員的金額是用「目前的時薪」重新計算；日薪、正職人員是當月按下「儲存」時的金額。"], [],
+    ["月份", "姓名", "類別", "出勤天數", "總時數", "計薪方式", "應發薪資"], ...out], "員工打卡系統_全部月份薪資表_" + m.file + ".csv");
+}
+function renderBackup() {
+  const c = backupCounts(); let last = ""; try { last = localStorage.getItem("tc_last_backup") || ""; } catch (e) {}
+  $("#backupBody").innerHTML =
+    `<div style="font-size:19px;font-weight:700">💾 資料備份</div><div class="sub">隨時都能下載。檔名和檔案裡面都會標示「這是什麼」和「備份時間」。</div>` +
+    `<div class="kpi"><div><b>${c.emp}</b><span>員工人數</span></div><div><b>${c.rec}</b><span>打卡紀錄筆數</span></div><div><b>${c.months}</b><span>已儲存的月薪資紀錄</span></div><div><b>${c.first || "—"}</b><span>最早一筆打卡</span></div></div>` +
+    `<button class="big" id="bkFull">💾 一鍵下載完整備份</button>` +
+    `<div class="sub" style="margin-top:6px">檔名像：員工打卡系統_完整備份_${dstr(Date.now())}_19-40.json。內含員工打卡密碼和薪資，請自己保管，不要傳到 LINE 群組。</div>` +
+    `<div style="margin-top:14px;font-weight:600">方便閱讀、存檔的版本（用 Excel 打開）</div>` +
+    `<div class="bar" style="margin-top:6px"><button class="ghost" id="bkPay">📊 全部月份薪資表</button><button class="ghost" id="bkRec">📋 全部打卡明細</button></div>` +
+    `<div class="status ${last ? "on" : ""}">${last ? "這台裝置上次備份：" + esc(last) : "這台裝置還沒有備份過"}</div>` +
+    `<div class="sub">建議每個月結完帳備份一次，存到電腦資料夾，再多存一份到雲端。出勤紀錄依法要保存五年。</div>`;
+  $("#bkFull").onclick = doBackup; $("#bkPay").onclick = backupCsvPay; $("#bkRec").onclick = backupCsvRec;
+}
 
 /* ---- 打卡紀錄 ---- */
 $("#monRec").onchange = renderRec; $("#recEmp").onchange = renderRec;
