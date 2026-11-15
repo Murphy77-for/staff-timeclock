@@ -105,6 +105,7 @@ header h1{flex:1 1 100px;min-width:0;line-height:1.25}
     <div id="dateLine" class="sub"></div>
     <div id="meName" class="sub" style="font-size:22px;font-weight:700;margin:6px 0;color:var(--ink)" hidden></div>
     <select id="empSel"></select>
+    <div id="forgetBox" class="warnbox" style="text-align:left" hidden></div>
     <div id="status" class="status"></div>
     <input id="pin" type="password" inputmode="numeric" maxlength="8" placeholder="輸入你的打卡密碼" data-i18n-ph="pinPh" autocomplete="off">
     <div id="tip" data-i18n="tip" class="sub" style="font-size:13px;margin:4px 0 0">第一次打卡成功後，這支手機會記住你的姓名，之後只要輸入打卡密碼就能打卡。</div>
@@ -197,6 +198,7 @@ const FIREBASE_CONFIG = {
   appId: "1:248681275840:web:a596230c183e3d68402825"
 };
 const DB_ROOT = "timeclock"; // 資料放在這個節點下，不會動到你其他工具的資料
+const FORGET_HOURS = 7;      // 後台：上班超過幾小時沒下班，就提醒「疑似忘記打下班」
 const MAX_OPEN_HOURS = 16;    // 上班超過幾小時沒下班，視為忘記打卡
 
 /* ---------- 資料層（Firebase 或 本機測試） ---------- */
@@ -423,9 +425,10 @@ const I18N = {
     locFail: "無法取得定位，請到訊號較好的地方再試一次",
     locInaccurate: "定位不夠精準（誤差約 {a} 公尺），請開啟「精確位置」或走到空曠處再試",
     tooFar: "你距離上班地點約 {d} 公尺，不在打卡範圍內（{r} 公尺）",
+    forgotHint: "⚠ 你的上班紀錄（{t}）還沒有下班。如果你已經下班但忘記打卡，請先通知主管補登，不要直接按下班打卡。",
     staleOpen: "上次上班（{t}）超過 {h} 小時沒下班，請通知主管補登後再打卡",
     tooSoonOut: "剛剛才打過上班卡，請過 30 秒再按下班打卡", tooSoonIn: "剛剛才打過下班卡，請過 30 秒再按上班打卡",
-    outOk: "{name} 下班打卡成功　{time}　本次 {dur}", inOk: "{name} 上班打卡成功　{time}",
+    outOk: "{name} 下班打卡成功　{time}　本次 {dur}", inOk: "{name} 上班打卡成功　{time}　記得下班也要打卡",
     punchFail: "打卡失敗，請檢查網路後再試一次", loggedOut: "已登出這支手機",
     recTitle: "{name}　{ym} 打卡紀錄", recTotal: "累計 {h} 小時（{dur}）",
     thDate: "日期", thIn: "上班", thOut: "下班", thHrs: "時數", onDuty: "上班中", noRec: "本月還沒有紀錄",
@@ -441,9 +444,10 @@ const I18N = {
     locFail: "Không lấy được vị trí, hãy ra nơi có sóng tốt hơn rồi thử lại",
     locInaccurate: "Vị trí chưa chính xác (sai số khoảng {a} m). Hãy bật “Vị trí chính xác” hoặc ra chỗ thoáng rồi thử lại",
     tooFar: "Bạn cách nơi làm việc khoảng {d} m, ngoài phạm vi chấm công ({r} m)",
+    forgotHint: "⚠ Lần vào làm của bạn ({t}) chưa có giờ tan làm. Nếu bạn đã tan làm nhưng quên chấm công, hãy báo quản lý bổ sung trước, đừng bấm chấm công tan làm ngay.",
     staleOpen: "Lần vào làm trước ({t}) đã quá {h} giờ mà chưa chấm công tan làm. Hãy báo quản lý bổ sung rồi mới chấm công",
     tooSoonOut: "Bạn vừa chấm công vào làm. Hãy chờ 30 giây rồi mới bấm chấm công tan làm", tooSoonIn: "Bạn vừa chấm công tan làm. Hãy chờ 30 giây rồi mới bấm chấm công vào làm",
-    outOk: "{name} chấm công tan làm thành công　{time}　Lần này: {dur}", inOk: "{name} chấm công vào làm thành công　{time}",
+    outOk: "{name} chấm công tan làm thành công　{time}　Lần này: {dur}", inOk: "{name} chấm công vào làm thành công　{time}　Nhớ chấm công khi tan làm",
     punchFail: "Chấm công thất bại, hãy kiểm tra mạng rồi thử lại", loggedOut: "Đã đăng xuất khỏi điện thoại này",
     recTitle: "{name}　Bảng chấm công {ym}", recTotal: "Tổng cộng {h} giờ ({dur})",
     thDate: "Ngày", thIn: "Vào", thOut: "Ra", thHrs: "Giờ", onDuty: "Đang làm", noRec: "Tháng này chưa có bản ghi",
@@ -459,9 +463,10 @@ const I18N = {
     locFail: "Lokasi tidak dapat diambil, coba lagi di tempat dengan sinyal lebih baik",
     locInaccurate: "Lokasi kurang akurat (selisih sekitar {a} m). Aktifkan “Lokasi akurat” atau pindah ke tempat terbuka, lalu coba lagi",
     tooFar: "Anda berjarak sekitar {d} m dari tempat kerja, di luar jangkauan absen ({r} m)",
+    forgotHint: "⚠ Absen masuk Anda ({t}) belum ada absen pulang. Jika Anda sudah pulang tetapi lupa absen, hubungi atasan untuk koreksi dulu, jangan langsung tekan absen pulang.",
     staleOpen: "Absen masuk terakhir ({t}) sudah lebih dari {h} jam dan belum absen pulang. Hubungi atasan untuk koreksi sebelum absen lagi",
     tooSoonOut: "Anda baru saja absen masuk. Tunggu 30 detik sebelum absen pulang", tooSoonIn: "Anda baru saja absen pulang. Tunggu 30 detik sebelum absen masuk",
-    outOk: "{name} berhasil absen pulang　{time}　Durasi: {dur}", inOk: "{name} berhasil absen masuk　{time}",
+    outOk: "{name} berhasil absen pulang　{time}　Durasi: {dur}", inOk: "{name} berhasil absen masuk　{time}　Ingat absen pulang juga",
     punchFail: "Absen gagal, periksa jaringan lalu coba lagi", loggedOut: "Sudah keluar dari ponsel ini",
     recTitle: "{name}　Catatan absen {ym}", recTotal: "Total {h} jam ({dur})",
     thDate: "Tanggal", thIn: "Masuk", thOut: "Pulang", thHrs: "Jam", onDuty: "Bekerja", noRec: "Belum ada catatan bulan ini",
@@ -514,6 +519,8 @@ function renderEmp() {
   if (!id) { st.textContent = tx("pickFirst"); st.className = "status"; btn.textContent = tx("punch"); btn.className = "big"; btn.disabled = true; return; }
   btn.disabled = false;
   const op = openPunch(id);
+  const fb = $("#forgetBox"), old = op && dstr(op[1].in) !== dstr(Date.now()) && Date.now() - op[1].in > FORGET_HOURS * 3600000;
+  fb.hidden = !old; if (old) fb.textContent = tx("forgotHint", { t: dwkL(op[1].in) + " " + tstr(op[1].in) });
   if (op) { st.textContent = tx("working", { t: dwkL(op[1].in) + " " + tstr(op[1].in) }); st.className = "status on"; btn.textContent = tx("punchOut"); btn.className = "big out"; }
   else { st.textContent = tx("notWorking"); st.className = "status"; btn.textContent = tx("punchIn"); btn.className = "big"; }
 }
@@ -656,9 +663,9 @@ function renderToday() {
   const doneMs = Object.values(punches).filter(p => p.out && dstr(p.in) === today).reduce((s, p) => s + p.out - p.in, 0);
   const ym = curYM(), mon = payroll(ym);
   const monPay = mon.reduce((s, r) => s + r.pay, 0), monMs = mon.reduce((s, r) => s + r.ms, 0);
-  const warn = on.filter(([, p]) => Date.now() - p.in > MAX_OPEN_HOURS * 3600000);
+  const warn = on.filter(([, p]) => Date.now() - p.in > FORGET_HOURS * 3600000);
   $("#tab-today").innerHTML =
-    (warn.length ? `<div class="warnbox">⚠ ${warn.map(([, p]) => esc(employees[p.emp].name)).join("、")} 上班超過 ${MAX_OPEN_HOURS} 小時未下班，可能忘記打卡，請到「打卡紀錄」補登。</div>` : "") +
+    (warn.length ? `<div class="warnbox"><b>⚠ 疑似忘記打下班卡（已上班超過 ${FORGET_HOURS} 小時）</b>${warn.map(([id, p]) => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px"><span>${esc(employees[p.emp].name)}　${dwk(p.in)} ${tstr(p.in)} 上班，已 ${hm(Date.now() - p.in)}</span><button class="ghost sm" data-act="editRec" data-id="${id}">補登下班</button></div>`).join("")}<div style="margin-top:6px;font-size:13px">如果對方還在上班就不用處理；已經下班的，請按「補登下班」填入實際下班時間。</div></div>` : "") +
     `<div class="kpi"><div><b>${on.length}</b><span>目前上班中</span></div><div><b>${hrs(doneMs)}</b><span>今日已完成時數</span></div><div><b>${hrs(monMs)}</b><span>${ym} 累計時數</span></div><div><b>${money(monPay)}</b><span>${ym} 預估薪資</span></div></div>` +
     (on.length ? `<div class="wrap"><table><thead><tr><th>姓名</th><th>上班時間</th><th>已上班</th></tr></thead><tbody>${on.map(([, p]) => `<tr><td>${esc(employees[p.emp].name)}</td><td>${dwk(p.in)} ${tstr(p.in)}</td><td>${hm(Date.now() - p.in)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">目前沒有人上班中</div>`);
 }
@@ -931,6 +938,7 @@ function renderRec() {
   }
   const ym = $("#monRec").value || curYM(), rows = monthPunches(ym, $("#recEmp").value || null);
   const lab = shiftLabels(rows);
+  rows.reverse();  // 最新的顯示在最上面
   $("#recBody").innerHTML = rows.length ? `<div class="sub" style="margin-bottom:8px">👆 點一下任一筆紀錄就能編輯（表格可左右滑動）</div><div class="wrap"><table><thead><tr><th>姓名</th><th>日期</th><th>上班</th><th>下班</th><th class="n">時數</th><th>位置</th><th></th></tr></thead><tbody>` +
     rows.map(([id, p]) => `<tr data-id="${id}" style="cursor:pointer"><td>${esc(employees[p.emp]?.name || "(已刪除)")}</td><td>${dwk(p.in)}${lab[id] ? ` <span class="tag off">${lab[id]}</span>` : ""}</td><td>${tstr(p.in)}</td><td>${p.out ? tstr(p.out) : "<span class='tag warn'>未下班</span>"}</td><td class="n">${p.out ? hrs(p.out - p.in) : "-"}</td><td>${locCell(p)}</td><td><button class="ghost sm" data-act="editRec" data-id="${id}">編輯</button> <button class="ghost sm danger" data-act="delRec" data-id="${id}">刪除</button></td></tr>`).join("") +
     `</tbody></table></div>` : `<div class="empty">這個月沒有紀錄</div>`;
@@ -953,6 +961,7 @@ function recDialog(id) {
     });
 }
 $("#addRec").onclick = () => recDialog(null);
+$("#tab-today").onclick = e => { const b = e.target.closest("button[data-act=editRec]"); if (b) recDialog(b.dataset.id); };
 $("#recBody").onclick = e => {
   const b = e.target.closest("button[data-act]");
   if (!b) { if (e.target.closest("a")) return; const tr = e.target.closest("tr[data-id]"); if (tr) recDialog(tr.dataset.id); return; }
